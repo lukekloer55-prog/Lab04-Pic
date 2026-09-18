@@ -106,8 +106,8 @@ InputSelection:
     MOVWF DelayLoopCount	;Once the LookUpTable is returned from then move the working register value into the DelayLoopCount general register. 
     
 LoadDelayLoop:
-    MOVLW 0x01				;Move the value of 5 to the working register.
-    XORWF PORTA,1			;XOR the port b with the value of 5 to toggle between 5 and 0 on the display.
+    MOVLW 0x01				;Move the value of 1 to the working register.
+    XORWF PORTA,1			;XOR the PORTA value with the value of 1 to toggle the bit.
     Call DelayLoop			;Call the delay loop.
     ;If the loop finished continue the delay loop.
     GOTO Main				;Repeat the main code once the delay loop is finished.
