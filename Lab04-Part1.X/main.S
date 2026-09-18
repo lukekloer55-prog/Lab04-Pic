@@ -21,9 +21,9 @@ CONFIG  WRT = OFF             ; Flash Program Memory Self Write Enable bits (Wri
 
 ; Config statements should precede project file includes.
 #include <xc.inc>
-    FiveHundredmsLoopCount EQU 0x20
-    OuterCount EQU 0x21
-    InnerCount EQU 0x22
+    DelayLoopCount EQU 0x20
+    InnerCount EQU 0x21
+    ButtonState EQU 0x22
         
 ; Reset Vector at 0000h. Execution starts here after reset.
  PSECT resetVect,class=CODE,delta=2
@@ -38,16 +38,24 @@ PSECT code,class=CODE,delta=2
 
 ; Add device setup here
 Setup:  
-    ;Setup Port B and disable unnecessary features.
+    ;Setup PORTA and disable unnecessary features.
+    BANKSEL ANSEL
+    CLRF ANSEL				;Clear ANSEL to set all pins to digital I/O
+    BANKSEL TRISA			;Move the value into the working register ready to be moved into the register.
+    CLRF TRISA				;Move the value into TRISA, to enable all pins as outputs.
+    BANKSEL PORTA   
+    CLRF PORTA				;Clear PORTA to set the I/0 pins to read vin low.
+    
+    ;Setup PORTB and disable unnecessary features.
     BCF 0x03,5				;Set Bank 0
     BCF 0x03,6				;Set Bank 0
     CLRF 0x17	   			;Set all low for ccp to be disabled.
     
     BSF 0x03,5				;Set Bank 1
     BCF 0x03,6				;Set Bank 1
-    CLRF 0x86				;Set all low for output to be enabled.
-    MOVLW 0xFF				;Move the value into the working register ready to be moved into the register.
-    MOVWF 0x95				;Set all High for weak pull ups to be Enabled.
+    MOVLW 0xFF                          ;Move the value into the working register ready to be moved into the register.
+    MOVWF 0x86				;Set all HIGH for input to be enabled.
+    CLRF 0x95				;Set all LOW for weak pull ups to be Disabled.
     CLRF 0x96				;Set all low for interrupt to be disabled.
     
     BCF 0x03,5				;Set Bank 2
@@ -60,38 +68,41 @@ Setup:
     BSF 0x81,7				;Set Bit 7 High to disable Pull-Up.
     CLRF 0x8B				;Set all low to disable interupts.
     
-    BCF 0x03,5				;Set Bank 0 to get to PORTB.
-    BCF 0x03,6				;Set Bank 0 to get to PORTB.
-    MOVLW 0xB5				;Move the PORTB valie into the working register.
-    MOVWF PORTB				;Move the working register into the PORTB register to output the 5 onto the display
+    BANKSEL PORTB
+    CLRF PORTB
     
 GOTO Main
     
-Main:
-    MOVLW 0x05				;1 TCY code not part of delay, Also move the value of 5 to the working register.
-    XORWF PORTB,1			;1 TCY code not part of delay, XOR the port b with the value of 5 to toggle between 5 and 0 on the display.
-    MOVLW 0x11				;1 TCY delay overhead, load the value needed to achieve a 500ms delay in working register.
-    MOVWF FiveHundredmsLoopCount        ;1 TCY delay overhead, load the value into the actual register for the 500ms delay.
-    Call FiveHundredmsDelayLoop		;2 TCY, Call the 500ms delay loop, call the 500msdelayloop.
+Main: 
+    
+InputSelection:
+BANKSEL PORTB				;Select the bank where PORTB is located.
+MOVF PORTB,W				;MOVE PORTB values into the working register.
+MOVWF ButtonState			;MOVE the portbs values that are in the working register into the ButtonState register.
+BTFSC ButtonState,0			;Check Bit, if it is clear skip the next instruction.
+CLRF PORTA				;Clear all bit values in PORTA, this allows the output to be held low if the button is not pressed. 
+BTFSS ButtonState,0			;Check Bit 0, skip if the bit is set. 
+GOTO Main				;GOTO Main if the bit is set. 	
+
+    MOVLW 0x01				;Move the value of 5 to the working register.
+    XORWF PORTA,1			;XOR the port b with the value of 5 to toggle between 5 and 0 on the display.
+    MOVLW 0x01				;Load the value needed to achieve a 500ms delay in working register.
+    MOVWF DelayLoopCount		;Delay overhead, load the value into the actual register for the 500ms delay.
+    Call DelayLoop			;Call the 500ms delay loop, call the 500msdelayloop.
     ;If the loop finished continue the delay loop.
-    GOTO Main				;2 TCY, Repeat the loop once the 500ms delay loop is finished.
-    ;After the call start the 500ms delay.
+    GOTO Main				;Repeat the loop once the 500ms delay loop is finished.
+    ;After the call start the delay.
     ;Code that deals with the whole of the inline delay starts here.
-FiveHundredmsDelayLoop:
-    MOVLW 0xAA				;1 TCY delay overhead, move the value needed to achieve a 500ms delay in working register.
-    MOVWF OuterCount			;1 TCY delay overhead, load the value into the actual register for the 500ms delay.
-    ;Code that deals with the 2nd part of the inline delay starts here.
-OuterDelayLoop:
-    MOVLW 0x37				;1 TCY delay overhead, move the value needed to achieve a 500ms delay in working register.
-    MOVWF InnerCount			;1 TCY delay overhead, load the value into the actual register for the 500ms delay.
-    Call InnerDelayLoop			;2 TCY Call the inner delay loop apart of the nested call requirement, will be moved ontop of the first call.
-    DECFSZ OuterCount			;1(2) TCy, decrement the outercount and if it is 0 skip the next instruction.
-    GOTO OuterDelayLoop			;2 TCY, continue the loop if the count is not 0.
-    DECFSZ FiveHundredmsLoopCount	;1(2) TCY, decrement the FiveHundredmsLoopCount if the outer loop has finished its decrement. 
-    GOTO FiveHundredmsLoopCount		;2 TCY, continue the loop and repeat all the above code if the outerloop hasn't hit 0. 
-    Return				;2 TCY , Return to the call and execute the next instruction.
+    
+DelayLoop:
+    MOVLW 0x9E				;Move the value needed to achieve a 500ms delay in working register.
+    MOVWF InnerCount			;Load the value into the actual register for the 500ms delay.
+    Call InnerDelayLoop			;Call the inner delay loop apart of the nested call requirement, will be moved ontop of the first call.
+    DECFSZ DelayLoopCount		;Decrement the DelayLoop if the outer loop has finished its decrement. 
+    GOTO DelayLoop			;Continue the loop and repeat all the above code if the outerloop hasn't hit 0. 
+    Return				;Return to the call and execute the next instruction.
     ;Code that deals with the inner most part of the inline delay starts here.
 InnerDelayLoop:
-    DECFSZ InnerCount,1			;1(2) TCY, Decrement the innercount and if it is 0 skip the next instruction.
-    GOTO InnerDelayLoop			;2 TCY, continue the loop if the count is not 0
-    Return				;2 TCY, Return to the innerdelay loop call and execute the next instruction.			  
+    DECFSZ InnerCount,1			;Decrement the innercount and if it is 0 skip the next instruction.
+    GOTO InnerDelayLoop			;Continue the loop if the count is not 0
+    Return				;Return to the innerdelay loop call and execute the next instruction.			  
