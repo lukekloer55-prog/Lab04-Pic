@@ -84,19 +84,19 @@ CLRF PORTA				;Clear all bit values in PORTA, this allows the output to be held 
 BTFSS ButtonState,0			;Check Bit 0, skip if the bit is set. 
 GOTO Main				;GOTO Main if the bit is set. 	
 
-    MOVLW 0x01				;Move the value of 5 to the working register.
-    XORWF PORTA,1			;XOR the port b with the value of 5 to toggle between 5 and 0 on the display.
-    MOVLW 0x01				;Load the value needed to achieve a 500ms delay in working register.
-    MOVWF DelayLoopCount		;Delay overhead, load the value into the actual register for the 500ms delay.
-    Call DelayLoop			;Call the 500ms delay loop, call the 500msdelayloop.
+    MOVLW 0x01				;Move the value of 1 to the working register.
+    XORWF PORTA,1			;XOR the PORTA with the value, to toggle the bit.
+    MOVLW 0x01				;Load the value needed to achieve a desired delay in working register.
+    MOVWF DelayLoopCount		;Load the value into the actual register for the delay.
+    Call DelayLoop			;Call the delay loop.
     ;If the loop finished continue the delay loop.
-    GOTO Main				;Repeat the loop once the 500ms delay loop is finished.
+    GOTO Main				;Repeat the loop once the delay loop is finished.
     ;After the call start the delay.
     ;Code that deals with the whole of the inline delay starts here.
     
 DelayLoop:
-    MOVLW 0x9E				;Move the value needed to achieve a 500ms delay in working register.
-    MOVWF InnerCount			;Load the value into the actual register for the 500ms delay.
+    MOVLW 0x9E				;Move the value needed to achieve a desired delay in working register.
+    MOVWF InnerCount			;Load the value into the actual register for the delay.
     Call InnerDelayLoop			;Call the inner delay loop apart of the nested call requirement, will be moved ontop of the first call.
     DECFSZ DelayLoopCount		;Decrement the DelayLoop if the outer loop has finished its decrement. 
     GOTO DelayLoop			;Continue the loop and repeat all the above code if the outerloop hasn't hit 0. 
